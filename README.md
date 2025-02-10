@@ -1,4 +1,4 @@
-# Replicate DeepSeek-R1 on SLM
+# Replicate DeepSeek-R1 on Small Language Model
 
 
 ## Best Practice
