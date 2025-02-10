@@ -6,7 +6,8 @@ from unsloth import FastLanguageModel, PatchFastRL
 import math
 PatchFastRL("GRPO", FastLanguageModel)
 
-MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B"
+# MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B"
+MODEL_PATH="/opt/local/llm_models/huggingface.co/unsloth/Qwen2.5-3B-bnb-4bit"
 
 # -------------------- Model --------------------
 
