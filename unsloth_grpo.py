@@ -3,6 +3,7 @@
 import torch
 from loguru import logger
 from unsloth import FastLanguageModel, PatchFastRL
+import math
 PatchFastRL("GRPO", FastLanguageModel)
 
 MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B"
