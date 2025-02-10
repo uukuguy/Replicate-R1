@@ -1,2 +1,2 @@
-launchpad
+dm-launchpad
 oat-llm
