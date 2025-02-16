@@ -177,7 +177,9 @@ trainer = GRPOTrainer(
 )
 trainer.train()
 
-model.save_lora("grpo_saved_lora")
+saved_lora_dir = "grpo_saved_lora"
+model.save_lora(saved_lora_dir)
+
 from unsloth_inference import model_inference
 gen_kwargs = {
     "temperature": 0.6,
@@ -185,7 +187,7 @@ gen_kwargs = {
 }
 
 prompt = "Which is bigger, 9.9 or 9.11?"
-generated_text = model_inference(prompt, model=model, tokenizer=tokenizer, gen_kwargs=gen_kwargs, loral_request="grpo_saved_lora")
+generated_text = model_inference(prompt, model=model, tokenizer=tokenizer, gen_kwargs=gen_kwargs, lora_request=saved_lora_dir)
 logger.debug(f"{generated_text=}")
 
 
@@ -228,3 +230,4 @@ if False:
         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
         token = "",
     )
+
