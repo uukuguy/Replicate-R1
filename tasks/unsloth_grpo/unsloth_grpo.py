@@ -153,7 +153,7 @@ training_args = GRPOConfig(
     gradient_accumulation_steps = 1, # Increase to 4 for smoother training
     num_generations = 8, # Decrease if out of memory
     max_prompt_length = 256,
-    max_completion_length = 200,
+    max_completion_length = 512,
     # num_train_epochs = 1, # Set to 1 for a full training run
     max_steps = 250,
     save_steps = 250,
@@ -175,59 +175,77 @@ trainer = GRPOTrainer(
     args = training_args,
     train_dataset = dataset,
 )
-trainer.train()
 
-saved_lora_dir = "grpo_saved_lora"
-model.save_lora(saved_lora_dir)
+import torch.distributed as dist
+try:
+    trainer.train()
+except Exception as e:
+    logger.error(f"Training failed: {e}")
+finally:
+	dist.destroy_process_group()
+
+# saved_lora_dir = "grpo_saved_lora"
+# model.save_lora(saved_lora_dir)
+model_weights_dir = "model_weights"
+logger.info(f"Saving model to {model_weights_dir}")
+model.save_pretrained_merged(model_weights_dir, tokenizer, save_method = "merged_16bit")
+logger.info(f"Model saved to {model_weights_dir}")
+
+adapter_model_dir = f"{model_weights_dir}/adapter_model"
+logger.info(f"Saving LoRA adapter model to {adapter_model_dir}")
+model.save_lora(adapter_model_dir)
+logger.info(f"LoRA adapter model saved to {adapter_model_dir}")
+
 
 from unsloth_inference import model_inference
 gen_kwargs = {
     "temperature": 0.6,
-    "max_tokens": 2048,
+    "max_tokens": 8192,
 }
 
 prompt = "Which is bigger, 9.9 or 9.11?"
-generated_text = model_inference(prompt, model=model, tokenizer=tokenizer, gen_kwargs=gen_kwargs, lora_request=saved_lora_dir)
+generated_text = model_inference(prompt, model=model, tokenizer=tokenizer, gen_kwargs=gen_kwargs, lora_request=adapter_model_dir)
 logger.debug(f"{generated_text=}")
 
 
-# -------------------- Save Model --------------------
 
-# Merge to 16bit
-if True: model.save_pretrained_merged("model", tokenizer, save_method = "merged_16bit",)
-if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_16bit", token = "")
+# # -------------------- Save Model --------------------
 
-# Merge to 4bit
-if True: model.save_pretrained_merged("model", tokenizer, save_method = "merged_4bit",)
-if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_4bit", token = "")
+# # Merge to 16bit
+# if True: model.save_pretrained_merged("model_fp16", tokenizer, save_method = "merged_16bit",)
+# if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_16bit", token = "")
 
-# Just LoRA adapters
-if True: model.save_pretrained_merged("model", tokenizer, save_method = "lora",)
-if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "lora", token = "")
+# # Merge to 4bit
+# if False: model.save_pretrained_merged("model_4bit", tokenizer, save_method = "merged_4bit_forced",)
+# if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_4bit", token = "")
+
+# # Just LoRA adapters
+# if True: model.save_pretrained_merged("model_lora", tokenizer, save_method = "lora",)
+# if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "lora", token = "")
 
 
-# -------------------- Save GGUF --------------------
+# # -------------------- Save GGUF --------------------
 
-# Save to 8bit Q8_0
-if True: model.save_pretrained_gguf("model", tokenizer,)
-# Remember to go to https://huggingface.co/settings/tokens for a token!
-# And change hf to your username!
-if False: model.push_to_hub_gguf("hf/model", tokenizer, token = "")
+# # Save to 8bit Q8_0
+# if False: model.save_pretrained_gguf("model_q8_0_gguf", tokenizer,)
+# # Remember to go to https://huggingface.co/settings/tokens for a token!
+# # And change hf to your username!
+# if False: model.push_to_hub_gguf("hf/model", tokenizer, token = "")
 
-# Save to 16bit GGUF
-if False: model.save_pretrained_gguf("model", tokenizer, quantization_method = "f16")
-if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "f16", token = "")
+# # Save to 16bit GGUF
+# if False: model.save_pretrained_gguf("model", tokenizer, quantization_method = "f16")
+# if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "f16", token = "")
 
-# Save to q4_k_m GGUF
-if False: model.save_pretrained_gguf("model", tokenizer, quantization_method = "q4_k_m")
-if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "q4_k_m", token = "")
+# # Save to q4_k_m GGUF
+# if False: model.save_pretrained_gguf("model_q4_k_m_gguf", tokenizer, quantization_method = "q4_k_m")
+# if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "q4_k_m", token = "")
 
-# Save to multiple GGUF options - much faster if you want multiple!
-if False:
-    model.push_to_hub_gguf(
-        "hf/model", # Change hf to your username!
-        tokenizer,
-        quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
-        token = "",
-    )
+# # Save to multiple GGUF options - much faster if you want multiple!
+# if False:
+#     model.push_to_hub_gguf(
+#         "hf/model", # Change hf to your username!
+#         tokenizer,
+#         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
+#         token = "",
+#     )
 

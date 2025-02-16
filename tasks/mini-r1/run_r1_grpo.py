@@ -6,9 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from loguru import logger
 
-from transformers.trainer_utils import get_last_checkpoint
-from transformers import AutoTokenizer, Callback
+from transformers import AutoTokenizer 
 from datasets import load_dataset
+
+from transformers.trainer_utils import get_last_checkpoint
+from transformers.trainer_callback import TrainerCallback
+from transformers import TrainingArguments, TrainerState, TrainerControl
+
 from trl import GRPOConfig, GRPOTrainer, get_peft_config, ModelConfig, TrlParser
 
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
@@ -33,7 +37,11 @@ def clean_memory():
     gc.collect()
     if sys.platform == 'linux':
         ctypes.CDLL("libc.so.6").malloc_trim(0)
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    # mps backend
+    if torch.backends.mps.is_initialized():
+        torch.backends.mps.rc.reset()
 
 
 def format_reward_func(completions, target, **kwargs):
@@ -231,11 +239,11 @@ def grpo_function(model_args: ModelConfig, script_args: ScriptArguments, trainin
     # Instantiate DPO trainer
     #########################
 
-    class CacheFlushCallback(Callback):  # Inherit from a base Callback class
-        def on_step_end(self, trainer, batch_idx, loss, *args, **kwargs): # Method called at end of each step
-            if batch_idx % 1 == 0: # Flush cache every 10 steps
+    class CacheFlushCallback(TrainerCallback):  # Inherit from a base Callback class
+        def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+            if state.global_step % 1 == 0: # Flush cache every 10 steps
                 clean_memory() # Clean memory
-                print("Cache flushed at step:", batch_idx) # Optional: for monitoring
+                print("Cache flushed at step:", state.global_step) # Optional: for monitoring
 
 
     # Create an instance of your callback
