@@ -6,13 +6,14 @@ from unsloth import FastLanguageModel, PatchFastRL
 import math
 PatchFastRL("GRPO", FastLanguageModel)
 
+MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B-Instruct"
 # MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B"
-MODEL_PATH="/opt/local/llm_models/huggingface.co/unsloth/Qwen2.5-3B-bnb-4bit"
+# MODEL_PATH="/opt/local/llm_models/huggingface.co/unsloth/Qwen2.5-3B-bnb-4bit"
 
 # -------------------- Model --------------------
 
 from unsloth import is_bfloat16_supported
-max_seq_length = 1024 # Can increase for longer reasoning traces
+max_seq_length = 8192 # Can increase for longer reasoning traces
 lora_rank = 64 # Larger rank = smarter, but slower
 
 model, tokenizer = FastLanguageModel.from_pretrained(
@@ -21,7 +22,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     load_in_4bit = True, # False for LoRA 16bit
     fast_inference = True, # Enable vLLM fast inference
     max_lora_rank = lora_rank,
-    gpu_memory_utilization = 0.5, # Reduce if out of memory
+    gpu_memory_utilization = 0.85, # Reduce if out of memory
 )
 
 model = FastLanguageModel.get_peft_model(
@@ -191,22 +192,22 @@ logger.debug(f"{generated_text=}")
 # -------------------- Save Model --------------------
 
 # Merge to 16bit
-if False: model.save_pretrained_merged("model", tokenizer, save_method = "merged_16bit",)
+if True: model.save_pretrained_merged("model", tokenizer, save_method = "merged_16bit",)
 if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_16bit", token = "")
 
 # Merge to 4bit
-if False: model.save_pretrained_merged("model", tokenizer, save_method = "merged_4bit",)
+if True: model.save_pretrained_merged("model", tokenizer, save_method = "merged_4bit",)
 if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "merged_4bit", token = "")
 
 # Just LoRA adapters
-if False: model.save_pretrained_merged("model", tokenizer, save_method = "lora",)
+if True: model.save_pretrained_merged("model", tokenizer, save_method = "lora",)
 if False: model.push_to_hub_merged("hf/model", tokenizer, save_method = "lora", token = "")
 
 
 # -------------------- Save GGUF --------------------
 
 # Save to 8bit Q8_0
-if False: model.save_pretrained_gguf("model", tokenizer,)
+if True: model.save_pretrained_gguf("model", tokenizer,)
 # Remember to go to https://huggingface.co/settings/tokens for a token!
 # And change hf to your username!
 if False: model.push_to_hub_gguf("hf/model", tokenizer, token = "")

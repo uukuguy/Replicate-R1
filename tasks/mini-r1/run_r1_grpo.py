@@ -233,7 +233,7 @@ def grpo_function(model_args: ModelConfig, script_args: ScriptArguments, trainin
 
     class CacheFlushCallback(Callback):  # Inherit from a base Callback class
         def on_step_end(self, trainer, batch_idx, loss, *args, **kwargs): # Method called at end of each step
-            if batch_idx % 10 == 0: # Flush cache every 10 steps
+            if batch_idx % 1 == 0: # Flush cache every 10 steps
                 clean_memory() # Clean memory
                 print("Cache flushed at step:", batch_idx) # Optional: for monitoring
 
