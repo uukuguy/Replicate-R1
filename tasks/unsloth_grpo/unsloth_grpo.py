@@ -1,41 +1,50 @@
 #!/usr/bin/env python
+"""
+
+"""
 
 import torch
 from loguru import logger
-from unsloth import FastLanguageModel, PatchFastRL
-import math
-PatchFastRL("GRPO", FastLanguageModel)
 
-MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B-Instruct"
-# MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B"
-# MODEL_PATH="/opt/local/llm_models/huggingface.co/unsloth/Qwen2.5-3B-bnb-4bit"
+
+major_version, minor_version = torch.cuda.get_device_capability()
+SUPPORTS_BFLOAT16 = False
+if major_version >= 8:
+    SUPPORTS_BFLOAT16 = True
+def is_bfloat16_supported():
+    return SUPPORTS_BFLOAT16
 
 # -------------------- Model --------------------
 
-from unsloth import is_bfloat16_supported
-max_seq_length = 8192 # Can increase for longer reasoning traces
-lora_rank = 64 # Larger rank = smarter, but slower
+def load_model_and_tokenizer(model_path: str, max_seq_length: int = 8192, lora_rank: int = 64):
+    from unsloth import FastLanguageModel, PatchFastRL
+    PatchFastRL("GRPO", FastLanguageModel)
 
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = MODEL_PATH,
-    max_seq_length = max_seq_length,
-    load_in_4bit = True, # False for LoRA 16bit
-    fast_inference = True, # Enable vLLM fast inference
-    max_lora_rank = lora_rank,
-    gpu_memory_utilization = 0.85, # Reduce if out of memory
-)
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name = MODEL_PATH,
+        max_seq_length = max_seq_length,
+        load_in_4bit = True, # False for LoRA 16bit
+        fast_inference = True, # Enable vLLM fast inference
+        max_lora_rank = lora_rank,
+        gpu_memory_utilization = 0.85, # Reduce if out of memory
+    )
 
-model = FastLanguageModel.get_peft_model(
-    model,
-    r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-    target_modules = [
-        "q_proj", "k_proj", "v_proj", "o_proj",
-        "gate_proj", "up_proj", "down_proj",
-    ], # Remove QKVO if out of memory
-    lora_alpha = lora_rank,
-    use_gradient_checkpointing = "unsloth", # Enable long context finetuning
-    random_state = 10042,
-)
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+        target_modules = [
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+        ], # Remove QKVO if out of memory
+        lora_alpha = lora_rank,
+        use_gradient_checkpointing = "unsloth", # Enable long context finetuning
+        random_state = 10042,
+    )
+
+    return model, tokenizer
+
+MODEL_PATH="/opt/local/llm_models/huggingface.co/Qwen/Qwen2.5-3B-Instruct"
+model, tokenizer = load_model_and_tokenizer(MODEL_PATH)
 
 # -------------------- Dataset --------------------
 
@@ -135,6 +144,15 @@ def xmlcount_reward_func(completions, **kwargs) -> list[float]:
     contents = [completion[0]["content"] for completion in completions]
     return [count_xml(c) for c in contents]
 
+
+reward_funcs = [
+    xmlcount_reward_func,
+    soft_format_reward_func,
+    strict_format_reward_func,
+    int_reward_func,
+    correctness_reward_func,
+]
+
 # -------------------- Train --------------------
 from trl import GRPOConfig, GRPOTrainer
 training_args = GRPOConfig(
@@ -165,13 +183,7 @@ training_args = GRPOConfig(
 trainer = GRPOTrainer(
     model = model,
     processing_class = tokenizer,
-    reward_funcs = [
-        xmlcount_reward_func,
-        soft_format_reward_func,
-        strict_format_reward_func,
-        int_reward_func,
-        correctness_reward_func,
-    ],
+    reward_funcs = reward_funcs
     args = training_args,
     train_dataset = dataset,
 )
@@ -249,3 +261,8 @@ logger.debug(f"{generated_text=}")
 #         token = "",
 #     )
 
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()
